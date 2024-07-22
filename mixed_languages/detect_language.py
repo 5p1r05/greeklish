@@ -23,37 +23,11 @@ def binary_search(arr, low, high, x):
     else:
         # Element is not present in the array
         return -1
-
-
-class DetectLanguageBaseline:
-    def __init__(self, words_path="mixed_languages/words.txt", model = None):
-        
-        with open(words_path, "r", encoding="utf-8") as file:
-            self.words = file.readlines()
-            self.words = [word.strip() for word in self.words]
-            self.words.sort()
-
-            self.model = model
-
-    def detect_english(self, word):
-        """
-        Detects the language of a word based on the words list
-
-        Args:
-            word (str): The word to detect the language of
-
-        Returns:
-            int: If the word is found in the list, returns the index of the word in the list, 
-                otherwise returns -1
-        """
-        
-        ret = binary_search(self.words, 0, len(self.words), word)
-
-        return ret
     
-    def split_array(self, array, indices):
+def split_array(array, indices):
         """
-        Splits an array into segments based on the indices
+        Splits an array into segments based on the indices.
+        It annotates the segments with the language of the text.
 
         Args:
             array (list): The array to split
@@ -93,8 +67,48 @@ class DetectLanguageBaseline:
         
         
         return segmented_array
+
+
+class DetectLanguageBaseline:
+    def __init__(self, words_path="mixed_languages/words.txt", model = None):
+        
+        with open(words_path, "r", encoding="utf-8") as file:
+            self.words = file.readlines()
+            self.words = [word.strip() for word in self.words]
+            self.words.sort()
+
+            self.model = model
+
+    def detect_english(self, word):
+        """
+        Detects the language of a word based on the words list
+
+        Args:
+            word (str): The word to detect the language of
+
+        Returns:
+            int: If the word is found in the list, returns the index of the word in the list, 
+                otherwise returns -1
+        """
+        
+        ret = binary_search(self.words, 0, len(self.words), word)
+
+        return ret
+    
+   
     
     def __call__(self, text):
+        """
+        Detects the english words in the text and split the text
+        to segments based on the english words. Then performs inference
+        to the greeklish segments.
+
+        Args:
+            text (str): The input text
+        
+        Returns:
+            str: The predicted text
+        """
         
         english_words_indices = []
         words = text.split(" ")
@@ -106,8 +120,7 @@ class DetectLanguageBaseline:
                 english_words_indices.append(i)
 
         # Split the array based on the positions of the english words
-        text_split = self.split_array(words, english_words_indices)
-
+        text_split = split_array(words, english_words_indices)
 
         predicted_text = []
 
@@ -126,14 +139,6 @@ class DetectLanguageBaseline:
         return predicted_text
                 
 
-
-
-
-        
-
-
-    
-        
 
 if __name__ == "__main__":
 

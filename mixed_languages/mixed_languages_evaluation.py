@@ -3,6 +3,8 @@ import json
 import tqdm 
 
 from transformer_models import ByT5
+from mixed_languages.detect_language import DetectLanguageBaseline
+from mixed_languages.detect_language import split_array
 
 
 class MixedLanguagesEvaluator:
@@ -42,39 +44,17 @@ class MixedLanguagesEvaluator:
             data = json.load(file)
             self.greeklish_mixed_text = data["text"]
     
-    def split_array(self, array, indices):
-        """
-        Splits an array into segments based on the indices
-
-        Args:
-            array (list): The array to split
-            indices (list): The indices to split the array
-        
-        Returns:
-            list: The segmented array
-        """
-        segmented_array = []
-
-        start_index = 0
-
-        for index in indices:
-            segmented_array.append(array[start_index:index])
-            segmented_array.append([array[index]])
-
-            start_index = index + 1
-
-        if(start_index < len(array)):
-            segmented_array.append(array[start_index:])
-        
-        
-        return segmented_array
+    
 
 
     def evaluate(self, model):
 
         """
         Evaluates the model's ability to ignore english words when transliterating greeklish text.
-        It first calculated the metrics 
+        It first calculated the metrics
+
+        Args:
+            model (ByT5): The model to evaluate
         """
 
         predicted_text = []
@@ -84,10 +64,14 @@ class MixedLanguagesEvaluator:
             predicted_text.append(model(sentence))
 
         # Calculate metrics
-        cer = self.cer.compute(predictions=predicted_text, references=self.greek_mixed_text)
-        wer = self.wer.compute(predictions=predicted_text, references=self.greek_mixed_text)
-        print(f"CER_raw: {cer}"
-              f"WER_raw: {wer}")
+        cer_raw = self.cer.compute(predictions=predicted_text, references=self.greek_mixed_text)
+        wer_raw = self.wer.compute(predictions=predicted_text, references=self.greek_mixed_text)
+        print("raw output")
+        print(f"CER_raw: {cer_raw}\n"
+              f"WER_raw: {wer_raw}")
+        # print("raw output")
+        # print(predicted_text)
+        
         
         greeklish_split = self.greeklish_mixed_text.copy()
 
@@ -98,46 +82,44 @@ class MixedLanguagesEvaluator:
         # Split the subsentences that contain english words
         for idx in range(len(greeklish_split)):
             if(str(idx) in self.masked_indices.keys()):
-                greeklish_split[idx] = self.split_array(greeklish_split[idx], self.masked_indices[str(idx)])
+                greeklish_split[idx] = split_array(greeklish_split[idx], self.masked_indices[str(idx)])
             else:
-                greeklish_split[idx] = [greeklish_split[idx]]
+                greeklish_split[idx] = [{'lang': 'el', 'text':greeklish_split[idx]}]
 
-        transliterated = []
+        predicted_text = []
 
-        # Transliterate the subsentences
-        for sentence_split in greeklish_split:
+        for sentence in greeklish_split:
 
-            sentence_join = []
-            for segment in sentence_split:
-                if(len(segment) == 0):
+            predicted_sentence  = []
+            for segment in sentence:
+                if(len(segment['text']) == 0):
                     continue
-                output = model(" ".join(segment))
-                sentence_join.extend([output.split(" ")])
-
-            sentence_join = [item for sublist in sentence_join for item in sublist]
-            transliterated.append(sentence_join)
-
+                txt = " ".join(segment['text'])
+                
+                if segment['lang'] == 'en':
+                    predicted_sentence.extend([txt])
+                else:
+                    predicted_sentence.extend([model(txt)])
+            
+            predicted_text.append(" ".join(predicted_sentence))
+           
+           
         
-        for sent_idx in self.masked_indices:
-          for idx in self.masked_indices[sent_idx]:
-            transliterated[int(sent_idx)][idx] = self.greek_mixed_text[int(sent_idx)].split(" ")[idx]
-
-        transliterated = [" ".join(sent) for sent in transliterated]
-        print(transliterated)
+        cer_sub = self.cer.compute(predictions=predicted_text, references=self.greek_mixed_text)
+        wer_sub = self.wer.compute(predictions=predicted_text, references=self.greek_mixed_text)
+        print("substituted output")
+        print(f"CER_sub: {cer_sub}\n"
+              f"WER_sub: {wer_sub}")
         
-        cer = self.cer.compute(predictions=transliterated, references=self.greek_mixed_text)
-        wer = self.wer.compute(predictions=transliterated, references=self.greek_mixed_text)
-        print(f"CER_raw: {cer}"
-              f"WER_raw: {wer}")
+        print(f"CER difference: {cer_raw - cer_sub}")
+        print(f"WER difference: {wer_raw - wer_sub}")
 
-
-       
 
 
 if __name__ == "__main__":
 
-    greek_mixed_text_path = "mixed_languages/data/greek_mixed_europarl_words_20.json"
-    greeklish_mixed_text_path = "mixed_languages/data/greeklish_mixed_europarl_words_20.json"
+    greek_mixed_text_path = "mixed_languages/data/greek_mixed_europarl_words_4.json"
+    greeklish_mixed_text_path = "mixed_languages/data/greeklish_mixed_europarl_words_4.json"
 
     evaluator = MixedLanguagesEvaluator(greek_mixed_text_path, greeklish_mixed_text_path)
 
@@ -146,4 +128,11 @@ if __name__ == "__main__":
     model.eval()
 
     evaluator.evaluate(model)
+
+    baseline = DetectLanguageBaseline(words_path="mixed_languages/words.txt", model=model)
+
+    evaluator.evaluate(baseline)
+
+
+
 

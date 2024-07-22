@@ -32,6 +32,7 @@ def mix_texts(greek_text_path, english_text_path, num_sentences, substitution_pr
     greek_english_data['text'] = []
     greek_english_data['masked_indices'] = []
 
+
     # Iterate over the sentences and randomly substitute 
     # greek sentences with the corresponding english ones
     for i in range(num_sentences):
@@ -54,7 +55,7 @@ def substitute_words(greek_text_path, num_sentences, substitution_probability):
     Returns
     """
     with open(greek_text_path, "r") as f:
-        greek_text = f.readlines()
+        greek_text = f.readlines()[30:]
 
     # Load the translator
     translator = googletrans.Translator()
@@ -88,44 +89,14 @@ def substitute_words(greek_text_path, num_sentences, substitution_probability):
     return greek_english_data
 
 
-    
-
-
-# def convert_to_greeklish_selected(greek_english_data):
-#     """
-#     Changes the greek sentences in the mixed text to greeklish.
-
-#     Args:
-#         greek_english_data (dict): A dictionary containing the mixed text and the indices of the english sentences that were substituted.
-
-#     Returns:
-#         dict: A dictionary containing the mixed greeklish-english text.
-#     """
-#     sentences = greek_english_data['text']
-#     masked_indices = greek_english_data['masked_indices']
-
-#     greeklish_english_data = {}
-#     greeklish_english_data['text'] = []
-#     greeklish_english_data['masked_indices'] = masked_indices
-
-#     for i, sentence in enumerate(sentences):
-#         if i not in masked_indices:
-#             greeklish_english_data['text'].append(dataset_maker.convert_to_greeklish([sentence])[0])
-#         else:
-#             greeklish_english_data['text'].append(sentence)
-    
-#     return greeklish_english_data
-
-
-
 
 if __name__ == "__main__":
     greek_text_path = "mixed_languages/data/europarl-v7.el-en.el"
     english_text_path = "mixed_languages/data/europarl-v7.el-en.en"
 
-    num_sentences = 20
-    substitution_probability = 0.15
-    random.seed(123)
+    num_sentences = 5
+    substitution_probability = 0.2
+    random.seed(1234)
 
     greek_english_sentences = mix_texts(greek_text_path, english_text_path, num_sentences, substitution_probability)
 
