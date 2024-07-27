@@ -63,57 +63,71 @@ class MixedLanguagesEvaluator:
         for sentence in self.greeklish_mixed_text:
             predicted_text.append(model(sentence))
 
-        # Calculate metrics
+        # Calculate raw metrics
         cer_raw = self.cer.compute(predictions=predicted_text, references=self.greek_mixed_text)
         wer_raw = self.wer.compute(predictions=predicted_text, references=self.greek_mixed_text)
-        print("raw output")
+        print("Metrics for the raw output")
         print(f"CER_raw: {cer_raw}\n"
               f"WER_raw: {wer_raw}")
-        # print("raw output")
-        # print(predicted_text)
         
         
-        greeklish_split = self.greeklish_mixed_text.copy()
 
+        # Calculate the metrics for the greek parts
+        predicted = []
+
+        for sent in predicted_text:
+            predicted.append(sent.split(" "))
+
+        
         # Split the sentences into words
-        for i in range(len(greeklish_split)):
-            greeklish_split[i] = greeklish_split[i].split(" ")
-      
-        # Split the subsentences that contain english words
-        for idx in range(len(greeklish_split)):
-            if(str(idx) in self.masked_indices.keys()):
-                greeklish_split[idx] = split_array(greeklish_split[idx], self.masked_indices[str(idx)])
-            else:
-                greeklish_split[idx] = [{'lang': 'el', 'text':greeklish_split[idx]}]
+        predicted_text_sliced = [sent.split(" ") for sent in predicted_text]
+        greeklish_mixed_text_sliced = [sent.split(" ") for sent in self.greeklish_mixed_text]
+        
+        gt_english_text = []
+        predicted_english_text = []
 
-        predicted_text = []
+        # Iterate over the masked indices
+        for sent_idx in self.masked_indices:
 
-        for sentence in greeklish_split:
+            gt_english_words = []
+            predicted_english_words = []
 
-            predicted_sentence  = []
-            for segment in sentence:
-                if(len(segment['text']) == 0):
+            for word_idx in self.masked_indices[sent_idx]:
+                if word_idx >= len(greeklish_mixed_text_sliced[int(sent_idx)]) or word_idx >= len(predicted_text_sliced[int(sent_idx)]):
                     continue
-                txt = " ".join(segment['text'])
                 
-                if segment['lang'] == 'en':
-                    predicted_sentence.extend([txt])
-                else:
-                    predicted_sentence.extend([model(txt)])
-            
-            predicted_text.append(" ".join(predicted_sentence))
-           
-           
-        
-        cer_sub = self.cer.compute(predictions=predicted_text, references=self.greek_mixed_text)
-        wer_sub = self.wer.compute(predictions=predicted_text, references=self.greek_mixed_text)
-        print("substituted output")
-        print(f"CER_sub: {cer_sub}\n"
-              f"WER_sub: {wer_sub}")
-        
-        print(f"CER difference: {cer_raw - cer_sub}")
-        print(f"WER difference: {wer_raw - wer_sub}")
+                # Get the predictions for the english words and the ground truth english words
+                gt_english_word = greeklish_mixed_text_sliced[int(sent_idx)][word_idx]
+                predicted_english_word = predicted_text_sliced[int(sent_idx)][word_idx]
 
+                gt_english_words.append(gt_english_word)
+                predicted_english_words.append(predicted_english_word)
+
+                # Substitute the ground truth english words with the predicted ones
+                predicted_text_sliced[int(sent_idx)][word_idx] = gt_english_word
+
+            gt_english_text.append(" ".join(gt_english_words))
+            predicted_english_text.append(" ".join(predicted_english_words))
+            
+                
+
+        predicted_text = [" ".join(sent) for sent in predicted_text_sliced]
+
+        
+
+        cer_raw = self.cer.compute(predictions=predicted_text, references=self.greek_mixed_text)
+        wer_raw = self.wer.compute(predictions=predicted_text, references=self.greek_mixed_text)
+        print("Metrics for the greeklish output")
+        print(f"CER_raw: {cer_raw}\n"
+              f"WER_raw: {wer_raw}")
+        
+
+        cer_raw = self.cer.compute(predictions=predicted_english_text, references=gt_english_text)
+        wer_raw = self.wer.compute(predictions=predicted_english_text, references=gt_english_text)
+        print("Metrics for the english output")
+        print(f"CER_raw: {cer_raw}\n"
+              f"WER_raw: {wer_raw}")
+        
 
 
 if __name__ == "__main__":
@@ -128,6 +142,8 @@ if __name__ == "__main__":
     model.eval()
 
     evaluator.evaluate(model)
+
+    print("Evaluating the baseline")
 
     baseline = DetectLanguageBaseline(words_path="mixed_languages/words.txt", model=model)
 

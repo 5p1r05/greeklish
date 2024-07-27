@@ -184,6 +184,6 @@ with torch.no_grad():
     sample = "Ena paradeigma sta ellinika."
     print("\n{}".format(sample))
     encoded_sample = tokenizer(sample, return_tensors="pt").input_ids.to(device)
-    output = model.generate(encoded_sample, max_length=200)
+    output = model.generate(encoded_sample, max_length=10000)
     print(tokenizer.decode(output[0]))
 
